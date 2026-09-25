@@ -44,7 +44,11 @@ export function effectiveMcpNamespace(
 export const mcpSettings = defineSettings({
   id: "servers",
   scope: "host",
-  version: 1,
+  version: 2,
+  migrate: (values, fromVersion) => {
+    if (fromVersion === 1) return values;
+    throw new Error(`Unsupported MCP settings version: ${fromVersion}`);
+  },
   schema: z.object({
     servers: z.array(mcpServerSchema).default([]),
   }),
