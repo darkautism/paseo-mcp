@@ -3,17 +3,20 @@ import { z } from "zod";
 
 const MCP_NAMESPACE_MAX_LENGTH = 64;
 
-export function normalizeMcpNamespace(value: string): string {
+function sanitizeNamespace(value: string): string {
   return value
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, MCP_NAMESPACE_MAX_LENGTH);
+    .replace(/^-+|-+$/g, "");
+}
+
+export function normalizeMcpNamespace(value: string): string {
+  return sanitizeNamespace(value).slice(0, MCP_NAMESPACE_MAX_LENGTH);
 }
 
 export function legacyMcpNamespace(id: string): string {
-  const clean = normalizeMcpNamespace(id);
+  const clean = sanitizeNamespace(id);
   return `paseo-${clean || "mcp"}`;
 }
 
