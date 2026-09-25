@@ -323,6 +323,7 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
   }
 
   const legacyMigration = buildLegacyNamespaceMigration();
+  const legacyServerCount = values.servers.filter((entry) => !entry.namespace).length;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -337,7 +338,7 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
         ) : null}
       </View>
 
-      {legacyMigration.changed > 0 ? (
+      {legacyServerCount > 0 ? (
         <View style={styles.card}>
           <Text style={styles.name}>Legacy MCP names</Text>
           <Text style={styles.muted}>
