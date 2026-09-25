@@ -129,6 +129,7 @@ async function main(): Promise<void> {
   const config: McpServerConfig = {
     id: "selftest",
     name: "Self-test",
+    namespace: "self-test",
     url: `${upstreamOrigin}/mcp`,
     enabled: true,
     providers: [],
