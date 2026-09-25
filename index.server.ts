@@ -3,6 +3,7 @@ import { mcpSettings, type McpServerConfig } from "./shared/config";
 import { oauthDisconnectRpc, oauthStartRpc, statusRpc } from "./shared/rpc";
 import { OAuthManager } from "./server/oauth";
 import { McpProxy } from "./server/proxy";
+import { openSystemBrowser } from "./server/browser";
 
 const DEFAULT_MCP_PROVIDERS = new Set([
   "codex",
@@ -62,7 +63,13 @@ export default function contribute(server: PluginServerContext) {
 
   server.handle(oauthStartRpc, async ({ serverId }) => {
     await proxy.start();
-    return { authorizationUrl: await oauth.begin(serverId) };
+    const authorizationUrl = await oauth.begin(serverId);
+    const opened = await openSystemBrowser(authorizationUrl);
+    return {
+      authorizationUrl,
+      opened: opened.ok,
+      openError: opened.error,
+    };
   });
 
   server.handle(oauthDisconnectRpc, async ({ serverId }) => {

@@ -35,7 +35,7 @@ Enable plugins in Paseo under **Settings -> Plugins** if the host has not enable
 1. Open **MCP Servers** in Paseo.
 2. Enter a name and the remote Streamable HTTP MCP URL.
 3. Leave **Providers** blank to inject into the built-in MCP-capable providers, or enter provider IDs separated by commas.
-4. If the server requires OAuth, select **Connect OAuth** and finish the browser authorization.
+4. If the server requires OAuth, select **Connect OAuth**. The daemon opens the authorization URL in the host system browser; finish the browser authorization there.
 5. New/resumed Paseo agents receive the localhost proxy URL in their MCP configuration.
 
 OAuth tokens are stored only on the daemon host at:

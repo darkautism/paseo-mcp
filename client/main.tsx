@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import { mcpSettings, type McpServerConfig } from "../shared/config";
 import { oauthDisconnectRpc, oauthStartRpc, statusRpc } from "../shared/rpc";
-import { openExternal } from "./web";
 
 type RuntimeStatus = {
   proxyOrigin: string | null;
@@ -223,7 +222,13 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
     setMessage(null);
     try {
       const result = await startOauth({ serverId: id });
-      await openExternal(result.authorizationUrl);
+      if (result.opened) {
+        setMessage("OAuth login opened in your system browser.");
+      } else {
+        setMessage(
+          `Could not open the system browser automatically: ${result.openError ?? "unknown error"}\nOpen this URL manually: ${result.authorizationUrl}`,
+        );
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {

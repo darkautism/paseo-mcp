@@ -22,7 +22,11 @@ export const statusRpc = defineRpc({
 export const oauthStartRpc = defineRpc({
   name: "mcp.oauth.start",
   input: z.object({ serverId: z.string().min(1) }),
-  output: z.object({ authorizationUrl: z.string().url() }),
+  output: z.object({
+    authorizationUrl: z.string().url(),
+    opened: z.boolean(),
+    openError: z.string().nullable(),
+  }),
 });
 
 export const oauthDisconnectRpc = defineRpc({
