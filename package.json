@@ -1,0 +1,28 @@
+{
+  "name": "paseo-mcp",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "files": [
+    "paseo-plugin.json",
+    "index.client.tsx",
+    "index.server.ts",
+    "client/",
+    "server/",
+    "shared/"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx tests/oauth-proxy.selftest.ts"
+  },
+  "devDependencies": {
+    "@getpaseo/plugin": "0.9.2",
+    "@types/node": "^22.15.0",
+    "@types/react": "~19.2.0",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "zod": "^4.4.3"
+  }
+}
