@@ -40,6 +40,7 @@ export default function contribute(server: PluginServerContext) {
   let proxy!: McpProxy;
   const oauth = new OAuthManager(getConfig, () => proxy.callbackUrl);
   proxy = new McpProxy(getConfig, oauth);
+
   void proxy.start().catch((error) => {
     console.error("paseo-mcp proxy failed to start", error);
   });
@@ -49,6 +50,7 @@ export default function contribute(server: PluginServerContext) {
     const servers = await getServers();
     return {
       proxyOrigin: proxy.origin,
+      effectiveCallbackUrl: proxy.callbackUrl,
       servers: servers.map((entry) => {
         const status = oauth.status(entry.id);
         return {

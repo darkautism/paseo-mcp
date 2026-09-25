@@ -7,6 +7,7 @@ import { oauthDisconnectRpc, oauthStartRpc, statusRpc } from "../shared/rpc";
 
 type RuntimeStatus = {
   proxyOrigin: string | null;
+  effectiveCallbackUrl: string | null;
   servers: Array<{
     id: string;
     oauthState: "none" | "pending" | "connected" | "error";
@@ -256,6 +257,9 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
           One host-side connection is injected into supported Paseo agents. OAuth tokens stay in the daemon.
         </Text>
         {runtime?.proxyOrigin ? <Text style={styles.muted}>Proxy: {runtime.proxyOrigin}</Text> : null}
+        {runtime?.effectiveCallbackUrl ? (
+          <Text style={styles.muted}>OAuth callback: {runtime.effectiveCallbackUrl}</Text>
+        ) : null}
       </View>
 
       <View style={styles.card}>

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { rmSync } from "node:fs";
 import { createServer } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 import type { McpServerConfig } from "../shared/config";
 import { OAuthManager } from "../server/oauth";
@@ -9,6 +12,11 @@ import { McpProxy } from "../server/proxy";
 function b64url(value: Buffer): string {
   return value.toString("base64url");
 }
+
+const runtimeStatePath = join(tmpdir(), `paseo-mcp-runtime-${process.pid}.json`);
+const credentialPath = join(tmpdir(), `paseo-mcp-credentials-${process.pid}.json`);
+process.env.PASEO_MCP_RUNTIME_STATE_PATH = runtimeStatePath;
+process.env.PASEO_MCP_CREDENTIAL_PATH = credentialPath;
 
 async function main(): Promise<void> {
   let expectedChallenge = "";
@@ -130,7 +138,10 @@ async function main(): Promise<void> {
   };
 
   let proxy!: McpProxy;
-  const oauth = new OAuthManager(async (id) => id === config.id ? config : undefined, () => proxy.callbackUrl);
+  const oauth = new OAuthManager(
+    async (id) => id === config.id ? config : undefined,
+    () => proxy.callbackUrl,
+  );
   proxy = new McpProxy(async (id) => id === config.id ? config : undefined, oauth);
 
   try {
@@ -164,6 +175,8 @@ async function main(): Promise<void> {
     oauth.disconnect(config.id);
     await proxy.stop();
     await new Promise<void>((resolve) => upstream.close(() => resolve()));
+    rmSync(runtimeStatePath, { force: true });
+    rmSync(credentialPath, { force: true });
   }
 }
 

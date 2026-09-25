@@ -26,7 +26,11 @@ export class CredentialStore {
   private readonly path: string;
   private values: CredentialFile = {};
 
-  constructor(path = join(homedir(), ".paseo", "plugin-data", "paseo-mcp", "credentials.json")) {
+  constructor(
+    path =
+      process.env.PASEO_MCP_CREDENTIAL_PATH ??
+      join(homedir(), ".paseo", "plugin-data", "paseo-mcp", "credentials.json"),
+  ) {
     this.path = path;
     this.load();
   }

@@ -8,18 +8,25 @@ interface RuntimeState {
   port: number;
 }
 
-const statePath = join(homedir(), ".paseo", "plugin-data", "paseo-mcp", "runtime.json");
+function statePath(): string {
+  return (
+    process.env.PASEO_MCP_RUNTIME_STATE_PATH ??
+    join(homedir(), ".paseo", "plugin-data", "paseo-mcp", "runtime.json")
+  );
+}
 
 function writeState(state: RuntimeState): void {
-  mkdirSync(dirname(statePath), { recursive: true, mode: 0o700 });
-  const temp = statePath + ".tmp";
+  const path = statePath();
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  const temp = path + ".tmp";
   writeFileSync(temp, JSON.stringify(state, null, 2), { encoding: "utf8", mode: 0o600 });
-  renameSync(temp, statePath);
+  renameSync(temp, path);
 }
 
 export function loadRuntimeState(): RuntimeState {
+  const path = statePath();
   try {
-    const parsed = JSON.parse(readFileSync(statePath, "utf8")) as Partial<RuntimeState>;
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<RuntimeState>;
     if (
       typeof parsed.secret === "string" &&
       parsed.secret.length >= 24 &&

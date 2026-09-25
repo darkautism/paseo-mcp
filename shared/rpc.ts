@@ -8,6 +8,7 @@ export const statusRpc = defineRpc({
   input: z.object({}),
   output: z.object({
     proxyOrigin: z.string().nullable(),
+    effectiveCallbackUrl: z.string().nullable(),
     servers: z.array(
       z.object({
         id: z.string(),
