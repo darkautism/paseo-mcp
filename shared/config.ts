@@ -1,9 +1,29 @@
 import { defineSettings } from "@getpaseo/plugin";
 import { z } from "zod";
 
+const MCP_NAMESPACE_MAX_LENGTH = 64;
+
+function sanitizeNamespace(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function normalizeMcpNamespace(value: string): string {
+  return sanitizeNamespace(value).slice(0, MCP_NAMESPACE_MAX_LENGTH);
+}
+
+export function legacyMcpNamespace(id: string): string {
+  const clean = sanitizeNamespace(id);
+  return `paseo-${clean || "mcp"}`;
+}
+
 export const mcpServerSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  namespace: z.string().default(""),
   url: z.string().url(),
   enabled: z.boolean().default(true),
   providers: z.array(z.string()).default([]),
@@ -14,10 +34,21 @@ export const mcpServerSchema = z.object({
 
 export type McpServerConfig = z.infer<typeof mcpServerSchema>;
 
+export function effectiveMcpNamespace(
+  config: Pick<McpServerConfig, "id" | "namespace">,
+): string {
+  const configured = normalizeMcpNamespace(config.namespace);
+  return configured || legacyMcpNamespace(config.id);
+}
+
 export const mcpSettings = defineSettings({
   id: "servers",
   scope: "host",
-  version: 1,
+  version: 2,
+  migrate: (values, fromVersion) => {
+    if (fromVersion === 1) return values;
+    throw new Error(`Unsupported MCP settings version: ${fromVersion}`);
+  },
   schema: z.object({
     servers: z.array(mcpServerSchema).default([]),
   }),

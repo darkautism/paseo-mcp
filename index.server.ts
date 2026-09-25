@@ -1,5 +1,9 @@
 import type { PluginServerContext } from "@getpaseo/plugin/server";
-import { mcpSettings, type McpServerConfig } from "./shared/config";
+import {
+  effectiveMcpNamespace,
+  mcpSettings,
+  type McpServerConfig,
+} from "./shared/config";
 import { oauthDisconnectRpc, oauthStartRpc, statusRpc } from "./shared/rpc";
 import { OAuthManager } from "./server/oauth";
 import { McpProxy } from "./server/proxy";
@@ -18,11 +22,6 @@ function providerMatches(config: McpServerConfig, provider: string): boolean {
   const normalized = provider.toLowerCase();
   if (config.providers.length === 0) return DEFAULT_MCP_PROVIDERS.has(normalized);
   return config.providers.some((value) => value.toLowerCase() === normalized);
-}
-
-function keyFor(config: McpServerConfig): string {
-  const clean = config.id.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
-  return `paseo-${clean || "mcp"}`;
 }
 
 export default function contribute(server: PluginServerContext) {
@@ -88,11 +87,24 @@ export default function contribute(server: PluginServerContext) {
 
     await proxy.start();
     const mcpServers = { ...request.config.mcpServers };
+    const injectedNamespaces = new Set<string>();
+
     for (const entry of selected) {
-      mcpServers[keyFor(entry)] = {
+      const namespace = effectiveMcpNamespace(entry);
+      if (injectedNamespaces.has(namespace)) {
+        throw new Error(`paseo-mcp: duplicate MCP namespace '${namespace}'`);
+      }
+      if (Object.prototype.hasOwnProperty.call(mcpServers, namespace)) {
+        throw new Error(
+          `paseo-mcp: MCP namespace '${namespace}' conflicts with an existing agent MCP server`,
+        );
+      }
+
+      mcpServers[namespace] = {
         type: "http",
         url: proxy.urlFor(entry.id),
       };
+      injectedNamespaces.add(namespace);
     }
 
     return {

@@ -2,16 +2,20 @@
 
 Independent Paseo plugin for managing remote MCP servers from one host and injecting them into Paseo agents through a shared localhost proxy.
 
+It uses Paseo's public plugin hooks only. It does not patch Paseo, Pi, or other provider implementations.
+
 ## Requirements
 
 - Paseo 0.9.2 or newer
 - Node.js available on the Paseo daemon host
+- For the `pi` provider: Pi's MCP adapter must be installed (for example, `pi install npm:pi-mcp-adapter`)
 
 ## What it does
 
 - Adds an **MCP Servers** page to the Paseo sidebar.
 - Stores the MCP server list as host-scoped Paseo plugin settings.
 - Injects enabled servers through `agent.create.mcpServers`.
+- Gives each server a stable, human-readable MCP namespace, independent from the plugin's internal routing ID.
 - Supports Paseo's built-in MCP-capable providers (`claude`, `codex`, `opencode`, `pi`, `omp`) by default.
 - Allows an explicit comma-separated provider allow-list per MCP server.
 - Runs one daemon-side loopback proxy, so agents never receive the upstream OAuth token.
@@ -33,10 +37,18 @@ Enable plugins in Paseo under **Settings -> Plugins** if the host has not enable
 ## Use
 
 1. Open **MCP Servers** in Paseo.
-2. Enter a name and the remote Streamable HTTP MCP URL.
+2. Enter a display name and the remote Streamable HTTP MCP URL. The MCP namespace defaults to a normalized form of the display name and can be set explicitly.
 3. Leave **Providers** blank to inject into the built-in MCP-capable providers, or enter provider IDs separated by commas.
 4. If the server requires OAuth, select **Connect OAuth**. The daemon opens the authorization URL in the host system browser; finish the browser authorization there.
-5. New/resumed Paseo agents receive the localhost proxy URL in their MCP configuration.
+5. New/resumed Paseo agents receive the localhost proxy URL under the stable MCP namespace.
+
+For example, a server named `o8` is exposed to the provider as `o8`, while its internal proxy route can remain an opaque ID such as `mcp-mughkku7-0zfnnu`.
+
+### Existing installations
+
+Existing servers deliberately keep their old generated namespace (for example, `paseo-mcp-mughkku7-0zfnnu`) after upgrading. This avoids silently breaking sessions, scripts, or tool policies that may refer to that key.
+
+The **MCP Servers** page offers an explicit **Use display names as MCP namespaces** migration after checking for collisions. Once selected, only the provider-facing namespace changes. Internal IDs, proxy routing, and OAuth credentials remain unchanged. Reload or recreate affected agents so they receive the new namespace.
 
 OAuth tokens are stored only on the daemon host at:
 
@@ -59,7 +71,7 @@ npm run typecheck
 npm test
 ```
 
-The self-test starts a local protected MCP resource and authorization server, then verifies discovery, DCR, PKCE, issuer validation, token exchange, refresh, and proxy forwarding.
+The tests cover OAuth/proxy behavior plus stable MCP namespace normalization and legacy-key compatibility.
 
 ## License
 

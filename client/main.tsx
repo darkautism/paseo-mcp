@@ -2,7 +2,12 @@ import type { PluginSurfaceProps } from "@getpaseo/plugin/client";
 import { useRpc, useSettings } from "@getpaseo/plugin/client";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
-import { mcpSettings, type McpServerConfig } from "../shared/config";
+import {
+  effectiveMcpNamespace,
+  mcpSettings,
+  normalizeMcpNamespace,
+  type McpServerConfig,
+} from "../shared/config";
 import { oauthDisconnectRpc, oauthStartRpc, statusRpc } from "../shared/rpc";
 
 type RuntimeStatus = {
@@ -29,6 +34,7 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [namespace, setNamespace] = useState("");
   const [url, setUrl] = useState("");
   const [providers, setProviders] = useState("");
   const [clientId, setClientId] = useState("");
@@ -163,6 +169,63 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
   const values = settings.values;
   const revision = settings.revision;
 
+  function namespaceConflict(candidate: string, exceptId?: string): string | null {
+    if (!candidate) return "MCP namespace cannot be empty.";
+    if (candidate === "paseo") return "'paseo' is reserved by Paseo.";
+    const conflicting = values.servers.find(
+      (entry) => entry.id !== exceptId && effectiveMcpNamespace(entry) === candidate,
+    );
+    return conflicting ? `MCP namespace '${candidate}' is already used by ${conflicting.name}.` : null;
+  }
+
+  function buildLegacyNamespaceMigration(): {
+    servers: McpServerConfig[];
+    changed: number;
+    error: string | null;
+  } {
+    const used = new Set(
+      values.servers.filter((entry) => entry.namespace).map((entry) => effectiveMcpNamespace(entry)),
+    );
+    const next: McpServerConfig[] = [];
+    let changed = 0;
+
+    for (const entry of values.servers) {
+      if (entry.namespace) {
+        next.push(entry);
+        continue;
+      }
+
+      const candidate = normalizeMcpNamespace(entry.name);
+      if (!candidate) {
+        return {
+          servers: values.servers,
+          changed: 0,
+          error: `Cannot derive an MCP namespace from '${entry.name}'.`,
+        };
+      }
+      if (candidate === "paseo") {
+        return {
+          servers: values.servers,
+          changed: 0,
+          error: `Cannot migrate '${entry.name}': 'paseo' is reserved.`,
+        };
+      }
+      if (used.has(candidate)) {
+        return {
+          servers: values.servers,
+          changed: 0,
+          error: `Cannot migrate '${entry.name}': MCP namespace '${candidate}' would collide.`,
+        };
+      }
+
+      used.add(candidate);
+      next.push({ ...entry, namespace: candidate });
+      changed++;
+    }
+
+    return { servers: next, changed, error: null };
+  }
+
   async function saveServers(next: McpServerConfig[]): Promise<boolean> {
     const ok = await settings.save({ servers: next }, revision);
     if (!ok) {
@@ -180,6 +243,14 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
       setMessage("Name and an http(s) MCP URL are required.");
       return;
     }
+
+    const chosenNamespace = normalizeMcpNamespace(namespace || trimmedName);
+    const conflict = namespaceConflict(chosenNamespace);
+    if (conflict) {
+      setMessage(conflict);
+      return;
+    }
+
     const providerList = providers
       .split(",")
       .map((value) => value.trim())
@@ -188,6 +259,7 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
     const next: McpServerConfig = {
       id: newId(),
       name: trimmedName,
+      namespace: chosenNamespace,
       url: trimmedUrl,
       enabled: true,
       providers: providerList,
@@ -197,6 +269,7 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
     };
     if (await saveServers([...values.servers, next])) {
       setName("");
+      setNamespace("");
       setUrl("");
       setProviders("");
       setClientId("");
@@ -249,6 +322,9 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
     }
   }
 
+  const legacyMigration = buildLegacyNamespaceMigration();
+  const legacyServerCount = values.servers.filter((entry) => !entry.namespace).length;
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <View>
@@ -262,6 +338,29 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
         ) : null}
       </View>
 
+      {legacyServerCount > 0 ? (
+        <View style={styles.card}>
+          <Text style={styles.name}>Legacy MCP names</Text>
+          <Text style={styles.muted}>
+            Existing servers keep their old generated namespaces until you opt in. This avoids breaking
+            sessions or tool policies that reference the legacy names.
+          </Text>
+          {legacyMigration.error ? (
+            <Text style={styles.danger}>{legacyMigration.error}</Text>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              style={styles.secondaryButton}
+              onPress={() => void saveServers(legacyMigration.servers)}
+            >
+              <Text style={styles.secondaryText}>
+                Use display names as MCP namespaces ({legacyMigration.changed})
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      ) : null}
+
       <View style={styles.card}>
         <Text style={styles.name}>Add MCP server</Text>
         <TextInput
@@ -269,6 +368,15 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
           value={name}
           onChangeText={setName}
           placeholder="Name"
+          placeholderTextColor={theme.colors.foregroundMuted}
+        />
+        <TextInput
+          style={styles.input}
+          value={namespace}
+          onChangeText={setNamespace}
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder="MCP namespace (optional; defaults to Name)"
           placeholderTextColor={theme.colors.foregroundMuted}
         />
         <TextInput
@@ -321,6 +429,12 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
       {values.servers.map((entry) => {
         const state = runtime?.servers.find((item) => item.id === entry.id);
         const providerLabel = entry.providers.length ? entry.providers.join(", ") : "built-in MCP providers";
+        const effectiveNamespace = effectiveMcpNamespace(entry);
+        const suggestedNamespace = normalizeMcpNamespace(entry.name);
+        const suggestionConflict = entry.namespace
+          ? null
+          : namespaceConflict(suggestedNamespace, entry.id);
+
         return (
           <View key={entry.id} style={styles.card}>
             <View style={styles.row}>
@@ -333,6 +447,21 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
                 onValueChange={(enabled) => void patchServer(entry.id, { enabled })}
               />
             </View>
+            <Text style={styles.muted}>
+              MCP namespace: {effectiveNamespace}{entry.namespace ? "" : " (legacy)"}
+            </Text>
+            {!entry.namespace && suggestedNamespace !== effectiveNamespace && !suggestionConflict ? (
+              <Pressable
+                accessibilityRole="button"
+                style={styles.secondaryButton}
+                onPress={() => void patchServer(entry.id, { namespace: suggestedNamespace })}
+              >
+                <Text style={styles.secondaryText}>Use "{suggestedNamespace}" as namespace</Text>
+              </Pressable>
+            ) : null}
+            {!entry.namespace && suggestionConflict ? (
+              <Text style={styles.danger}>{suggestionConflict}</Text>
+            ) : null}
             <Text style={styles.muted}>Providers: {providerLabel}</Text>
             <Text style={styles.status}>OAuth: {state?.oauthState ?? "none"}</Text>
             {state?.expiresAt ? (
