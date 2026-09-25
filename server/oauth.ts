@@ -566,6 +566,38 @@ export class OAuthManager {
     res.statusCode = status;
     res.setHeader("content-type", "text/html; charset=utf-8");
     res.setHeader("cache-control", "no-store");
-    res.end(`<!doctype html><meta charset="utf-8"><title>Paseo MCP</title><body style="font-family:sans-serif;padding:2rem"><h2>Paseo MCP</h2><p>${escaped}</p></body>`);
+    const shouldClose = status >= 200 && status < 300;
+    res.end(`<!doctype html>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>Paseo MCP</title>
+<style>
+  :root { color-scheme: light dark; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: Canvas;
+    color: CanvasText;
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  body {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+  }
+  main {
+    max-width: 32rem;
+    padding: 2rem;
+    text-align: center;
+  }
+  h1 { margin: 0 0 .5rem; font-size: 1rem; font-weight: 600; }
+  p { margin: 0; opacity: .72; }
+</style>
+<main>
+  <h1>Paseo MCP</h1>
+  <p>${escaped}</p>
+</main>
+${shouldClose ? '<script>setTimeout(() => window.close(), 350)</script>' : ''}`);
+
   }
 }
