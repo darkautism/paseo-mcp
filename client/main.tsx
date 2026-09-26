@@ -34,11 +34,7 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [namespace, setNamespace] = useState("");
   const [url, setUrl] = useState("");
-  const [providers, setProviders] = useState("");
-  const [clientId, setClientId] = useState("");
-  const [scope, setScope] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -244,17 +240,12 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
       return;
     }
 
-    const chosenNamespace = normalizeMcpNamespace(namespace || trimmedName);
+    const chosenNamespace = normalizeMcpNamespace(trimmedName);
     const conflict = namespaceConflict(chosenNamespace);
     if (conflict) {
       setMessage(conflict);
       return;
     }
-
-    const providerList = providers
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
 
     const next: McpServerConfig = {
       id: newId(),
@@ -262,18 +253,14 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
       namespace: chosenNamespace,
       url: trimmedUrl,
       enabled: true,
-      providers: providerList,
+      providers: [],
       oauth: "auto",
-      clientId: clientId.trim(),
-      scope: scope.trim(),
+      clientId: "",
+      scope: "",
     };
     if (await saveServers([...values.servers, next])) {
       setName("");
-      setNamespace("");
       setUrl("");
-      setProviders("");
-      setClientId("");
-      setScope("");
     }
   }
 
@@ -372,47 +359,11 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
         />
         <TextInput
           style={styles.input}
-          value={namespace}
-          onChangeText={setNamespace}
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="MCP namespace (optional; defaults to Name)"
-          placeholderTextColor={theme.colors.foregroundMuted}
-        />
-        <TextInput
-          style={styles.input}
           value={url}
           onChangeText={setUrl}
           autoCapitalize="none"
           autoCorrect={false}
           placeholder="https://example.com/mcp"
-          placeholderTextColor={theme.colors.foregroundMuted}
-        />
-        <TextInput
-          style={styles.input}
-          value={providers}
-          onChangeText={setProviders}
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="Providers (comma-separated; blank = built-in MCP agents)"
-          placeholderTextColor={theme.colors.foregroundMuted}
-        />
-        <TextInput
-          style={styles.input}
-          value={clientId}
-          onChangeText={setClientId}
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="OAuth client_id / CIMD URL (optional)"
-          placeholderTextColor={theme.colors.foregroundMuted}
-        />
-        <TextInput
-          style={styles.input}
-          value={scope}
-          onChangeText={setScope}
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="OAuth scope (optional)"
           placeholderTextColor={theme.colors.foregroundMuted}
         />
         <View style={styles.row}>
