@@ -379,7 +379,6 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
 
       {values.servers.map((entry) => {
         const state = runtime?.servers.find((item) => item.id === entry.id);
-        const providerLabel = entry.providers.length ? entry.providers.join(", ") : "built-in MCP providers";
         const effectiveNamespace = effectiveMcpNamespace(entry);
         const suggestedNamespace = normalizeMcpNamespace(entry.name);
         const suggestionConflict = entry.namespace
@@ -398,9 +397,6 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
                 onValueChange={(enabled) => void patchServer(entry.id, { enabled })}
               />
             </View>
-            <Text style={styles.muted}>
-              MCP namespace: {effectiveNamespace}{entry.namespace ? "" : " (legacy)"}
-            </Text>
             {!entry.namespace && suggestedNamespace !== effectiveNamespace && !suggestionConflict ? (
               <Pressable
                 accessibilityRole="button"
@@ -413,7 +409,6 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
             {!entry.namespace && suggestionConflict ? (
               <Text style={styles.danger}>{suggestionConflict}</Text>
             ) : null}
-            <Text style={styles.muted}>Providers: {providerLabel}</Text>
             <Text style={styles.status}>OAuth: {state?.oauthState ?? "none"}</Text>
             {state?.expiresAt ? (
               <Text style={styles.muted}>Token expires: {new Date(state.expiresAt).toLocaleString()}</Text>
