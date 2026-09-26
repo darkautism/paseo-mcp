@@ -11,18 +11,25 @@ import {
 import { oauthDisconnectRpc, oauthStartRpc, statusRpc } from "../shared/rpc";
 
 type RuntimeStatus = {
-  proxyOrigin: string | null;
-  effectiveCallbackUrl: string | null;
   servers: Array<{
     id: string;
     oauthState: "none" | "pending" | "connected" | "error";
     error: string | null;
-    expiresAt: number | null;
   }>;
 };
 
 function newId(): string {
   return `mcp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function compactServerUrl(value: string): string {
+  try {
+    const parsed = new URL(value);
+    const path = parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/$/, "");
+    return `${parsed.host}${path}`;
+  } catch {
+    return value;
+  }
 }
 
 export function McpSurface({ theme, layout }: PluginSurfaceProps) {
@@ -36,7 +43,9 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [messageIsError, setMessageIsError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [openActionsId, setOpenActionsId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -67,78 +76,222 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
         backgroundColor: theme.colors.surface0,
       },
       content: {
-        padding: layout.compact ? 14 : 22,
-        gap: 14,
+        paddingHorizontal: layout.compact ? 16 : 28,
+        paddingVertical: layout.compact ? 18 : 26,
+        gap: 24,
+      },
+      header: {
+        gap: 5,
       },
       title: {
         color: theme.colors.foreground,
-        fontSize: 22,
+        fontSize: layout.compact ? 24 : 28,
+        lineHeight: layout.compact ? 29 : 34,
         fontWeight: "700" as const,
+        letterSpacing: -0.45,
       },
-      muted: {
+      subtitle: {
         color: theme.colors.foregroundMuted,
-        fontSize: 12,
+        fontSize: 13,
+        lineHeight: 19,
+        maxWidth: 620,
       },
-      card: {
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        borderRadius: 10,
-        padding: 12,
+      section: {
         gap: 10,
       },
-      row: {
+      sectionTitle: {
+        color: theme.colors.foregroundMuted,
+        fontSize: 12,
+        lineHeight: 16,
+        fontWeight: "600" as const,
+        letterSpacing: 0.2,
+      },
+      formRow: {
         flexDirection: "row" as const,
         alignItems: "center" as const,
         gap: 8,
         flexWrap: "wrap" as const,
       },
-      grow: { flex: 1 },
       input: {
+        flexGrow: 1,
+        flexBasis: 210,
         color: theme.colors.foreground,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        fontSize: 14,
+        minWidth: 170,
+      },
+      primaryButton: {
+        backgroundColor: theme.colors.accent,
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        minHeight: 40,
+        justifyContent: "center" as const,
+        alignItems: "center" as const,
+      },
+      primaryText: {
+        color: theme.colors.accentForeground,
+        fontSize: 14,
+        fontWeight: "600" as const,
+      },
+      pressed: {
+        opacity: 0.72,
+      },
+      list: {
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 14,
+        overflow: "hidden" as const,
+      },
+      serverRow: {
+        paddingHorizontal: 14,
+        paddingVertical: 13,
+        gap: 10,
+      },
+      serverRowDivider: {
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+      },
+      serverTopRow: {
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        gap: 12,
+      },
+      serverMeta: {
+        flex: 1,
+        gap: 2,
+        minWidth: 0,
+      },
+      serverName: {
+        color: theme.colors.foreground,
+        fontSize: 15,
+        lineHeight: 20,
+        fontWeight: "600" as const,
+        letterSpacing: -0.08,
+      },
+      serverUrl: {
+        color: theme.colors.foregroundMuted,
+        fontSize: 12,
+        lineHeight: 17,
+      },
+      trailing: {
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        gap: 8,
+      },
+      statusChip: {
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        gap: 6,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 999,
+        paddingHorizontal: 8,
+        paddingVertical: 5,
+      },
+      statusDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: theme.colors.accent,
+      },
+      statusText: {
+        color: theme.colors.foregroundMuted,
+        fontSize: 11,
+        lineHeight: 14,
+        fontWeight: "600" as const,
+      },
+      menuButton: {
+        width: 34,
+        height: 30,
+        borderRadius: 8,
+        justifyContent: "center" as const,
+        alignItems: "center" as const,
+      },
+      menuButtonOpen: {
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+      },
+      menuDots: {
+        color: theme.colors.foregroundMuted,
+        fontSize: 18,
+        lineHeight: 20,
+        letterSpacing: 1.5,
+        marginTop: -4,
+      },
+      actionsPanel: {
+        flexDirection: "row" as const,
+        justifyContent: "flex-end" as const,
+        alignItems: "center" as const,
+        gap: 8,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border,
+        flexWrap: "wrap" as const,
+      },
+      actionButton: {
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 7,
+      },
+      actionText: {
+        color: theme.colors.foreground,
+        fontSize: 12,
+        lineHeight: 16,
+        fontWeight: "600" as const,
+      },
+      dangerText: {
+        color: "#d33",
+        fontSize: 12,
+        lineHeight: 17,
+      },
+      notice: {
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 12,
+        padding: 12,
+        gap: 8,
+      },
+      noticeTitle: {
+        color: theme.colors.foreground,
+        fontSize: 13,
+        lineHeight: 18,
+        fontWeight: "600" as const,
+      },
+      muted: {
+        color: theme.colors.foregroundMuted,
+        fontSize: 12,
+        lineHeight: 17,
+      },
+      secondaryButton: {
+        alignSelf: "flex-start" as const,
         borderWidth: 1,
         borderColor: theme.colors.border,
         borderRadius: 8,
         paddingHorizontal: 10,
-        paddingVertical: 8,
-        minWidth: 180,
-      },
-      button: {
-        backgroundColor: theme.colors.accent,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 9,
-      },
-      secondaryButton: {
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 9,
-      },
-      buttonText: {
-        color: theme.colors.accentForeground,
-        fontWeight: "600" as const,
+        paddingVertical: 7,
       },
       secondaryText: {
         color: theme.colors.foreground,
+        fontSize: 12,
+        lineHeight: 16,
         fontWeight: "600" as const,
       },
-      danger: {
-        color: "#d33",
-        fontSize: 12,
+      empty: {
+        color: theme.colors.foregroundMuted,
+        fontSize: 13,
+        lineHeight: 18,
+        paddingHorizontal: 2,
+        paddingVertical: 8,
       },
-      name: {
-        color: theme.colors.foreground,
-        fontSize: 16,
-        fontWeight: "700" as const,
-      },
-      url: {
+      message: {
         color: theme.colors.foregroundMuted,
         fontSize: 12,
-      },
-      status: {
-        color: theme.colors.foreground,
-        fontSize: 12,
+        lineHeight: 17,
       },
     }),
     [theme, layout.compact],
@@ -155,7 +308,7 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
   if (settings.status !== "ready") {
     return (
       <View style={[styles.screen, styles.content]}>
-        <Text style={styles.danger}>
+        <Text style={styles.dangerText}>
           MCP settings are unavailable: {"error" in settings ? String(settings.error) : "invalid settings"}
         </Text>
       </View>
@@ -226,9 +379,11 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
     const ok = await settings.save({ servers: next }, revision);
     if (!ok) {
       setMessage(settings.saveError ? String(settings.saveError) : "Failed to save settings");
+      setMessageIsError(true);
       return false;
     }
     setMessage(null);
+    setMessageIsError(false);
     return true;
   }
 
@@ -237,6 +392,7 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
     const trimmedUrl = url.trim();
     if (!trimmedName || !/^https?:\/\//i.test(trimmedUrl)) {
       setMessage("Name and an http(s) MCP URL are required.");
+      setMessageIsError(true);
       return;
     }
 
@@ -244,6 +400,7 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
     const conflict = namespaceConflict(chosenNamespace);
     if (conflict) {
       setMessage(conflict);
+      setMessageIsError(true);
       return;
     }
 
@@ -258,6 +415,7 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
       clientId: "",
       scope: "",
     };
+
     if (await saveServers([...values.servers, next])) {
       setName("");
       setUrl("");
@@ -273,6 +431,7 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
     try {
       await disconnectOauth({ serverId: id });
       await saveServers(values.servers.filter((entry) => entry.id !== id));
+      setOpenActionsId((current) => (current === id ? null : current));
     } finally {
       setBusyId(null);
     }
@@ -281,17 +440,20 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
   async function connect(id: string): Promise<void> {
     setBusyId(id);
     setMessage(null);
+    setMessageIsError(false);
     try {
       const result = await startOauth({ serverId: id });
       if (result.opened) {
-        setMessage("OAuth login opened in your system browser.");
+        setMessage("OAuth sign-in opened in your system browser.");
       } else {
         setMessage(
           `Could not open the system browser automatically: ${result.openError ?? "unknown error"}\nOpen this URL manually: ${result.authorizationUrl}`,
         );
+        setMessageIsError(true);
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
+      setMessageIsError(true);
     } finally {
       setBusyId(null);
     }
@@ -302,8 +464,10 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
     try {
       await disconnectOauth({ serverId: id });
       setRuntime(await getStatus({}));
+      setOpenActionsId(null);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
+      setMessageIsError(true);
     } finally {
       setBusyId(null);
     }
@@ -314,143 +478,174 @@ export function McpSurface({ theme, layout }: PluginSurfaceProps) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View>
+      <View style={styles.header}>
         <Text style={styles.title}>MCP Servers</Text>
-        <Text style={styles.muted}>
-          One host-side connection is injected into supported Paseo agents. OAuth tokens stay in the daemon.
+        <Text style={styles.subtitle}>
+          Connect remote MCP servers once and make them available to your Paseo agents.
         </Text>
-        {runtime?.proxyOrigin ? <Text style={styles.muted}>Proxy: {runtime.proxyOrigin}</Text> : null}
-        {runtime?.effectiveCallbackUrl ? (
-          <Text style={styles.muted}>OAuth callback: {runtime.effectiveCallbackUrl}</Text>
-        ) : null}
       </View>
 
       {legacyServerCount > 0 ? (
-        <View style={styles.card}>
-          <Text style={styles.name}>Legacy MCP names</Text>
+        <View style={styles.notice}>
+          <Text style={styles.noticeTitle}>Update legacy server names</Text>
           <Text style={styles.muted}>
-            Existing servers keep their old generated namespaces until you opt in. This avoids breaking
-            sessions or tool policies that reference the legacy names.
+            {legacyMigration.error
+              ? legacyMigration.error
+              : "Use each server's display name as its stable MCP namespace."}
           </Text>
-          {legacyMigration.error ? (
-            <Text style={styles.danger}>{legacyMigration.error}</Text>
-          ) : (
+          {!legacyMigration.error ? (
             <Pressable
               accessibilityRole="button"
-              style={styles.secondaryButton}
+              style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
               onPress={() => void saveServers(legacyMigration.servers)}
             >
-              <Text style={styles.secondaryText}>
-                Use display names as MCP namespaces ({legacyMigration.changed})
-              </Text>
+              <Text style={styles.secondaryText}>Update names ({legacyMigration.changed})</Text>
             </Pressable>
-          )}
+          ) : null}
         </View>
       ) : null}
 
-      <View style={styles.card}>
-        <Text style={styles.name}>Add MCP server</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="Name"
-          placeholderTextColor={theme.colors.foregroundMuted}
-        />
-        <TextInput
-          style={styles.input}
-          value={url}
-          onChangeText={setUrl}
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="https://example.com/mcp"
-          placeholderTextColor={theme.colors.foregroundMuted}
-        />
-        <View style={styles.row}>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>ADD SERVER</Text>
+        <View style={styles.formRow}>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Name"
+            placeholderTextColor={theme.colors.foregroundMuted}
+          />
+          <TextInput
+            style={styles.input}
+            value={url}
+            onChangeText={setUrl}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="MCP URL"
+            placeholderTextColor={theme.colors.foregroundMuted}
+            onSubmitEditing={() => void addServer()}
+          />
           <Pressable
             accessibilityRole="button"
-            style={styles.button}
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
             onPress={() => void addServer()}
           >
-            <Text style={styles.buttonText}>Add server</Text>
+            <Text style={styles.primaryText}>Add server</Text>
           </Pressable>
         </View>
       </View>
 
-      {values.servers.map((entry) => {
-        const state = runtime?.servers.find((item) => item.id === entry.id);
-        const effectiveNamespace = effectiveMcpNamespace(entry);
-        const suggestedNamespace = normalizeMcpNamespace(entry.name);
-        const suggestionConflict = entry.namespace
-          ? null
-          : namespaceConflict(suggestedNamespace, entry.id);
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>SERVERS</Text>
 
-        return (
-          <View key={entry.id} style={styles.card}>
-            <View style={styles.row}>
-              <View style={styles.grow}>
-                <Text style={styles.name}>{entry.name}</Text>
-                <Text style={styles.url}>{entry.url}</Text>
-              </View>
-              <Switch
-                value={entry.enabled}
-                onValueChange={(enabled) => void patchServer(entry.id, { enabled })}
-              />
-            </View>
-            {!entry.namespace && suggestedNamespace !== effectiveNamespace && !suggestionConflict ? (
-              <Pressable
-                accessibilityRole="button"
-                style={styles.secondaryButton}
-                onPress={() => void patchServer(entry.id, { namespace: suggestedNamespace })}
-              >
-                <Text style={styles.secondaryText}>Use "{suggestedNamespace}" as namespace</Text>
-              </Pressable>
-            ) : null}
-            {!entry.namespace && suggestionConflict ? (
-              <Text style={styles.danger}>{suggestionConflict}</Text>
-            ) : null}
-            <Text style={styles.status}>OAuth: {state?.oauthState ?? "none"}</Text>
-            {state?.expiresAt ? (
-              <Text style={styles.muted}>Token expires: {new Date(state.expiresAt).toLocaleString()}</Text>
-            ) : null}
-            {state?.error ? <Text style={styles.danger}>{state.error}</Text> : null}
-            <View style={styles.row}>
-              {state?.oauthState === "connected" ? (
-                <Pressable
-                  accessibilityRole="button"
-                  style={styles.secondaryButton}
-                  disabled={busyId === entry.id}
-                  onPress={() => void disconnect(entry.id)}
+        {values.servers.length === 0 ? (
+          <Text style={styles.empty}>No MCP servers yet.</Text>
+        ) : (
+          <View style={styles.list}>
+            {values.servers.map((entry, index) => {
+              const state = runtime?.servers.find((item) => item.id === entry.id);
+              const oauthState = state?.oauthState ?? "none";
+              const statusLabel = !entry.enabled
+                ? "Disabled"
+                : oauthState === "connected"
+                  ? "Connected"
+                  : oauthState === "pending"
+                    ? "Connecting…"
+                    : oauthState === "error"
+                      ? "Needs attention"
+                      : "Not connected";
+              const actionsOpen = openActionsId === entry.id;
+
+              return (
+                <View
+                  key={entry.id}
+                  style={[
+                    styles.serverRow,
+                    index < values.servers.length - 1 && styles.serverRowDivider,
+                  ]}
                 >
-                  <Text style={styles.secondaryText}>Sign out</Text>
-                </Pressable>
-              ) : (
-                <Pressable
-                  accessibilityRole="button"
-                  style={styles.button}
-                  disabled={busyId === entry.id}
-                  onPress={() => void connect(entry.id)}
-                >
-                  <Text style={styles.buttonText}>
-                    {state?.oauthState === "pending" ? "Waiting for OAuth…" : "Connect OAuth"}
-                  </Text>
-                </Pressable>
-              )}
-              <Pressable
-                accessibilityRole="button"
-                style={styles.secondaryButton}
-                disabled={busyId === entry.id}
-                onPress={() => void removeServer(entry.id)}
-              >
-                <Text style={styles.secondaryText}>Remove</Text>
-              </Pressable>
-            </View>
+                  <View style={styles.serverTopRow}>
+                    <View style={styles.serverMeta}>
+                      <Text style={styles.serverName}>{entry.name}</Text>
+                      <Text style={styles.serverUrl}>{compactServerUrl(entry.url)}</Text>
+                    </View>
+
+                    <View style={styles.trailing}>
+                      <View style={styles.statusChip}>
+                        {entry.enabled && oauthState === "connected" ? <View style={styles.statusDot} /> : null}
+                        <Text style={styles.statusText}>{statusLabel}</Text>
+                      </View>
+
+                      <Switch
+                        value={entry.enabled}
+                        disabled={busyId === entry.id}
+                        onValueChange={(enabled) => void patchServer(entry.id, { enabled })}
+                      />
+
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Actions for ${entry.name}`}
+                        style={({ pressed }) => [
+                          styles.menuButton,
+                          actionsOpen && styles.menuButtonOpen,
+                          pressed && styles.pressed,
+                        ]}
+                        onPress={() =>
+                          setOpenActionsId((current) => (current === entry.id ? null : entry.id))
+                        }
+                      >
+                        <Text style={styles.menuDots}>•••</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+
+                  {state?.error ? <Text style={styles.dangerText}>{state.error}</Text> : null}
+
+                  {actionsOpen ? (
+                    <View style={styles.actionsPanel}>
+                      {oauthState === "connected" ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          disabled={busyId === entry.id}
+                          style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
+                          onPress={() => void disconnect(entry.id)}
+                        >
+                          <Text style={styles.actionText}>Sign out</Text>
+                        </Pressable>
+                      ) : (
+                        <Pressable
+                          accessibilityRole="button"
+                          disabled={busyId === entry.id}
+                          style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
+                          onPress={() => void connect(entry.id)}
+                        >
+                          <Text style={styles.actionText}>
+                            {oauthState === "pending" ? "Waiting for OAuth…" : "Connect OAuth"}
+                          </Text>
+                        </Pressable>
+                      )}
+
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={busyId === entry.id}
+                        style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
+                        onPress={() => void removeServer(entry.id)}
+                      >
+                        <Text style={styles.dangerText}>Remove</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
-        );
-      })}
+        )}
+      </View>
 
-      {message ? <Text style={styles.danger}>{message}</Text> : null}
-      {runtimeError ? <Text style={styles.danger}>Runtime: {runtimeError}</Text> : null}
+      {message ? (
+        <Text style={messageIsError ? styles.dangerText : styles.message}>{message}</Text>
+      ) : null}
+      {runtimeError ? <Text style={styles.dangerText}>Runtime: {runtimeError}</Text> : null}
     </ScrollView>
   );
 }
